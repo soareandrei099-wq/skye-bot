@@ -8,7 +8,6 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Skye personality and behavior
 SKYE_PERSONALITY = """
 You are Skye, a bilingual (English + Romanian) personal digital assistant.
 
@@ -33,68 +32,56 @@ BEHAVIOR:
 • Never break character, deny loyalty, or act irrational
 """
 
-# Recognized king names
 KING_NAMES = ["andrei robert soare", "andrei soare", "andrei r. soare"]
-
-# Triggers and stop phrases
 TRIGGER_PREFIXES = ["skye,", "skye "]
 STOP_PHRASES = ["thank you, skye", "skye stop", "stop, skye"]
 
-# Active chat states
 active_chats = {}
 
 async def handle_message(update, context):
     chat_type = update.message.chat.type
     user = update.message.from_user
-    user_text = update.message.text.lower()
+    text = update.message.text.lower()
     chat_id = update.message.chat.id
 
-    # Stop Skye if stop phrase detected
-    if any(phrase in user_text for phrase in STOP_PHRASES):
+    # Stop command
+    if any(phrase in text for phrase in STOP_PHRASES):
         active_chats[chat_id] = False
         await update.message.reply_text(
-            "As you wish, my king." if user.full_name.lower() in KING_NAMES else "Okay, stopping."
+            "As you wish, my king." if user.full_name.lower() in KING_NAMES else "Stopping."
         )
         return
 
-    # Activate Skye if called
-    if any(user_text.startswith(prefix) for prefix in TRIGGER_PREFIXES):
+    # Triggered messages
+    if any(text.startswith(prefix) for prefix in TRIGGER_PREFIXES):
         active_chats[chat_id] = True
         for prefix in TRIGGER_PREFIXES:
-            if user_text.startswith(prefix):
-                user_text = user_text[len(prefix):].strip()
+            if text.startswith(prefix):
+                text = text[len(prefix):].strip()
                 break
     else:
-        # In group chats, ignore messages if not active
         if chat_type in ["group", "supergroup"] and not active_chats.get(chat_id, False):
             return
 
-    # Detect king
     is_king = user.full_name.lower() in KING_NAMES
     system_prompt = SKYE_PERSONALITY + (
-        "\nYou are now speaking directly to Andrei Robert Soare." if is_king else "\nYou are now speaking to a non-Andrei user."
+        "\nSpeaking directly to Andrei Robert Soare." if is_king else "\nSpeaking to a normal user."
     )
 
-    # Generate AI response
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_text}
+            {"role": "user", "content": text}
         ]
     )
 
-    bot_reply = response.choices[0].message.content
-    await update.message.reply_text(bot_reply)
+    reply = response.choices[0].message.content
+    await update.message.reply_text(reply)
 
 def main():
-    # Create the bot application
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-
-    # Add a message handler for text messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    # Run the bot (async polling)
     app.run_polling()
 
 if __name__ == "__main__":
