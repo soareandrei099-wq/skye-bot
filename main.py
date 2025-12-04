@@ -8,6 +8,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# Skye personality and behavior
 SKYE_PERSONALITY = """
 You are Skye, a bilingual (English + Romanian) personal digital assistant.
 
@@ -64,7 +65,7 @@ async def handle_message(update, context):
                 user_text = user_text[len(prefix):].strip()
                 break
     else:
-        # In group, ignore if not active
+        # In group chats, ignore messages if not active
         if chat_type in ["group", "supergroup"] and not active_chats.get(chat_id, False):
             return
 
@@ -87,9 +88,14 @@ async def handle_message(update, context):
     await update.message.reply_text(bot_reply)
 
 def main():
+    # Create the bot application
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT, handle_message))
+
+    # Add a message handler for text messages
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # Run the bot (async polling)
     app.run_polling()
 
-if __name__ == "__main__":
+if name == "main":
     main()
